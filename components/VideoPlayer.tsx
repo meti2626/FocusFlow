@@ -10,13 +10,12 @@ interface VideoPlayerProps {
 export const VideoPlayer: React.FC<VideoPlayerProps> = ({ video, onBack }) => {
   const [notes, setNotes] = useState<string>('');
   
-  // Since we don't have real IDs for the generated content usually, we use a generic educational placeholder
-  // unless the ID looks real (length 11).
+  // Use embedUrl if available, otherwise construct from video ID
   const videoSrc = video.id === 'blocked' 
     ? '' 
-    : video.id.length === 11 
+    : video.embedUrl || (video.id.length === 11 
       ? `https://www.youtube.com/embed/${video.id}` 
-      : `https://www.youtube.com/embed/jfKfPfyJRdk`; // Default lofi stream as fallback for demo
+      : `https://www.youtube.com/embed/jfKfPfyJRdk`); // Default lofi stream as fallback for demo
 
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-300">
@@ -29,9 +28,9 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ video, onBack }) => {
       </button>
 
       <div className="flex flex-col lg:flex-row gap-6 h-full min-h-0">
-        {/* Video Section */}
-        <div className="flex-grow flex flex-col gap-4">
-          <div className="aspect-video bg-black rounded-2xl overflow-hidden shadow-lg border border-zinc-800">
+        {/* Video Section - Made larger */}
+        <div className="flex-grow flex flex-col gap-4 min-w-0">
+          <div className="bg-black rounded-2xl overflow-hidden shadow-lg border border-zinc-800" style={{ aspectRatio: '16/9', maxHeight: 'calc(100vh - 200px)' }}>
              {video.id === 'blocked' ? (
                 <div className="w-full h-full flex flex-col items-center justify-center text-center p-8 text-white">
                     <h2 className="text-2xl font-bold text-red-400 mb-2">Distraction Blocked</h2>
@@ -51,9 +50,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ video, onBack }) => {
              )}
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">{video.title}</h1>
-            <h2 className="text-lg font-medium text-brand-600 dark:text-brand-400">{video.channel}</h2>
-            <p className="mt-2 text-zinc-600 dark:text-zinc-400 leading-relaxed">{video.description}</p>
+            <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">{video.title}</h1>
+            <h2 className="text-base font-medium text-brand-600 dark:text-brand-400">{video.channel}</h2>
           </div>
         </div>
 

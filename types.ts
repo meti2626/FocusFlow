@@ -13,6 +13,12 @@ export interface Video {
   description: string;
   thumbnailUrl: string;
   isEducational: boolean;
+  source?: 'youtube' | 'vimeo' | 'other';
+  embedUrl?: string;
+  publishedAt?: string;
+  viewCount?: string;
+  likeCount?: string;
+  duration?: string;
 }
 
 export interface StudyFile {

@@ -12,14 +12,15 @@ import {
   MoreVertical,
   Trash2,
   PanelLeftClose,
-  PanelLeftOpen
+  PanelLeftOpen,
+  RefreshCw
 } from 'lucide-react';
 import { Tab, Video, StudyFile } from './types';
 import { Pomodoro } from './components/Pomodoro';
 import { Heatmap } from './components/Heatmap';
 import { VideoPlayer } from './components/VideoPlayer';
 import { FileViewer } from './components/FileViewer';
-import { searchEducationalVideos } from './services/geminiService';
+import { searchEducationalVideos, getTrendingVideos } from './services/geminiService';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>(Tab.FILES);
@@ -94,6 +95,29 @@ export default function App() {
     }
   }, [files]);
 
+  // Load trending videos when Explore tab is opened (like YouTube homepage)
+  useEffect(() => {
+    // Only load if we're on Explore tab and have no videos yet
+    if (activeTab === Tab.EXPLORE && videos.length === 0 && !isLoading) {
+      const loadTrendingVideos = async () => {
+        setIsLoading(true);
+        try {
+          const trendingVideos = await getTrendingVideos();
+          setVideos(trendingVideos);
+          console.log('📊 Trending videos loaded:', trendingVideos.length);
+        } catch (err) {
+          console.error('❌ Error loading trending videos:', err);
+          setVideos([]);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      
+      loadTrendingVideos();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]); // Only depend on activeTab to avoid infinite loops
+
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery.trim()) return;
@@ -105,9 +129,14 @@ export default function App() {
 
     try {
       const results = await searchEducationalVideos(searchQuery);
+      console.log('📊 Search results received:', results.length, 'videos');
       setVideos(results);
+      if (results.length === 0) {
+        console.warn('⚠️ No videos returned. Check console for errors.');
+      }
     } catch (err) {
-      console.error(err);
+      console.error('❌ Search error:', err);
+      setVideos([]);
     } finally {
       setIsLoading(false);
     }
@@ -263,11 +292,37 @@ export default function App() {
     );
   };
 
+  const handleRefreshTrending = async () => {
+    setIsLoading(true);
+    setSearchQuery(''); // Clear search query
+    try {
+      const trendingVideos = await getTrendingVideos();
+      setVideos(trendingVideos);
+      console.log('📊 Trending videos refreshed:', trendingVideos.length);
+    } catch (err) {
+      console.error('❌ Error refreshing trending videos:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const renderExplore = () => (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-       <div className="mb-6">
-         <h2 className="text-3xl font-bold text-zinc-800 dark:text-white mb-2">Explore Knowledge</h2>
-         <p className="text-zinc-500 dark:text-zinc-400">AI-Filtered educational content. Distractions are automatically blocked.</p>
+       <div className="mb-6 flex justify-between items-start">
+         <div>
+           <h2 className="text-3xl font-bold text-zinc-800 dark:text-white mb-2">Explore Knowledge</h2>
+           <p className="text-zinc-500 dark:text-zinc-400">AI-Filtered educational content. Distractions are automatically blocked.</p>
+         </div>
+         {videos.length > 0 && !isLoading && (
+           <button
+             onClick={handleRefreshTrending}
+             className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition-colors shadow-sm text-sm font-medium flex items-center gap-2"
+             title="Refresh trending videos"
+           >
+             <RefreshCw size={16} />
+             Refresh
+           </button>
+         )}
        </div>
 
        {isLoading ? (
@@ -348,6 +403,8 @@ export default function App() {
 
   // Check if we are in an immersive view (reading a file or watching a video)
   const isImmersive = (activeTab === Tab.FILES && !!currentFile) || (activeTab === Tab.WATCH && !!currentVideo);
+  // Search bar should only hide when viewing a file, not when watching a video
+  const shouldHideSearchBar = activeTab === Tab.FILES && !!currentFile;
 
   // --- Main Layout ---
 
@@ -418,8 +475,8 @@ export default function App() {
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col min-w-0 relative bg-zinc-50/50 dark:bg-zinc-900">
         
-        {/* Top Header / Search - Hide in immersive mode */}
-        {!isImmersive && (
+        {/* Top Header / Search - Always visible except when viewing a file */}
+        {!shouldHideSearchBar && (
             <header className="h-16 border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md sticky top-0 z-10 flex items-center px-6 justify-between gap-4">
             <div className="flex items-center gap-4 flex-1">
                 <div className="flex-1 max-w-xl">

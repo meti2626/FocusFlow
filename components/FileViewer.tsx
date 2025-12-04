@@ -19,7 +19,8 @@ import {
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Configure the worker for PDF.js
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.worker.min.mjs`;
+// Use the worker from the public folder (served by Vite)
+pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
 interface FileViewerProps {
   file: StudyFile;
@@ -179,7 +180,11 @@ export const FileViewer: React.FC<FileViewerProps> = ({ file, onBack, onUpdateFi
         try {
           setLoading(true);
           setError(null);
-          const loadingTask = pdfjsLib.getDocument(file.url);
+          // Configure getDocument with proper options for data URLs
+          const loadingTask = pdfjsLib.getDocument({
+            url: file.url,
+            verbosity: 0, // Suppress console warnings
+          });
           const doc = await loadingTask.promise;
           setPdfDoc(doc);
           setNumPages(doc.numPages);
@@ -194,7 +199,9 @@ export const FileViewer: React.FC<FileViewerProps> = ({ file, onBack, onUpdateFi
 
         } catch (err: any) {
           console.error("Error loading PDF:", err);
-          setError("Could not load PDF. It might be corrupted or incompatible.");
+          // Provide more detailed error message
+          const errorMessage = err?.message || "Could not load PDF. It might be corrupted or incompatible.";
+          setError(errorMessage);
         } finally {
           setLoading(false);
         }
