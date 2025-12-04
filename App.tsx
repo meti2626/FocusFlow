@@ -29,14 +29,15 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
+  // A minimal valid PDF base64 string for the mock file to ensure it always renders without CORS issues
+  const MOCK_PDF_BASE64 = "data:application/pdf;base64,JVBERi0xLjcKCjEgMCBvYmogICUgZW50cnkgcG9pbnQKPDwKICAvVHlwZSAvQ2F0YWxvZwogIC9QYWdlcyAyIDAgUgo+PgplbmRvYmoKCjIgMCBvYmogICUgcGFnZXMKPDwKICAvVHlwZSAvUGFnZXwKICAvTWVkaWFCb3ggWyAwIDAgNTk1LjI4IDg0MS44OSBdCiAgL0NvdW50IDEKICAvS2lkcyBbIDMgMCBSIF0KPj4KZW5kb2JqCgozIDAgb2JqICAlL3BhZ2UgY29udGVudAo8PAogIC9UeXBlIC9QYWdlCiAgL1BhcmVudCAyIDAgUgogIC9SZXNvdXJjZXMgPDwKICAgIC9Gb250IDw8CiAgICAgIC9GMSA0IDAgUgogICAgPj4KICA+PgogIC9Db250ZW50cyA1IDAgUgo+PgplbmRvYmoKCjQgMCBvYmogICUgb2JqZWN0Cjw8CiAgL1R5cGUgL0ZvbnQKICAvU3VidHlwZSAvVHlwZTEKICAvQmFzZUZvbnQgL1RpbWVzLVJvbWFuCj4+CmVuZG9iagoKNSAwIG9iaiAgJSBzdHJlYW0KPDwKICAvTGVuZ3RoIDIyMwo+PgpzdHJlYW0KQlQKL0YxIDI0IFRmCjEwMCA3MDAgVGQKKFdlbGNvbWUgdG8gRm9jdXNGbG93ISkgVGoKRVQKQlQKL0YxIDEyIFRmCjEwMCA2NjAgVGQKKFRoaXMgaXMgYSBzYW1wbGUgUERGIGZpbGUgdG8gZGVtb25zdHJhdGUgdGhlIGJ1aWx0LWluIHJlYWRlci4pIFRqCkVUCkJUCi9FMSAxMiBUZgoxMDAgNjQwIFRkCihYouKAmWxsIHNlZSB5b3VyIHN0dWR5IGZpbGVzIGhlcmUuIFVwbG9hZCB5b3VyIG93biBQREYgZnJvbSB0aGUgRmlsZXMgdGFiLikgVGoKRVQKZW5kc3RyZWFtCmVuZG9iagoKeHJlZgowIDYKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDEwIDAwMDAwIG4gCjAwMDAwMDAwNjAgMDAwMDAgbiAgCjAwMDAwMDAxNTcgMDAwMDAgbiAgCjAwMDAwMDAyNjggMDAwMDAgbiAgCjAwMDAwMDAzNTYgMDAwMDAgbiAgCnRyYWlsZXIKPDwKICAvU2l6ZSA2CiAgL1Jvb3QgMSAwIFIKPj4Kc3RhcnR4cmVmCjYyOQolJUVPRgo=";
+
   // Initialize files from localStorage or use defaults
   const [files, setFiles] = useState<StudyFile[]>(() => {
     if (typeof window !== 'undefined') {
       try {
         const saved = localStorage.getItem('focusFlowFiles');
         if (saved) {
-          // Note: Object URLs cannot be persisted in localStorage, 
-          // so 'url' will be undefined for reloaded files unless we reconstruct it or use mock data.
           return JSON.parse(saved).map((f: any) => ({
             ...f,
             lastOpened: new Date(f.lastOpened)
@@ -46,20 +47,19 @@ export default function App() {
         console.error("Failed to load files", e);
       }
     }
-    // Default mock initial data with dummy URLs for demo purposes
+    // Default mock initial data
     return [
       { 
         id: '1', 
-        name: 'Advanced_React_Patterns.pdf', 
+        name: 'Welcome_Guide.pdf', 
         type: 'pdf', 
         lastOpened: new Date(), 
-        size: '2.4 MB',
-        // Mock PDF URL (using a sample PDF for demo)
-        url: 'https://pdfobject.com/pdf/sample.pdf' 
+        size: '120 KB',
+        url: MOCK_PDF_BASE64
       },
       { 
         id: '2', 
-        name: 'Project_Goals.txt', 
+        name: 'Project_Notes.txt', 
         type: 'txt', 
         lastOpened: new Date(Date.now() - 86400000), 
         size: '1 KB',
@@ -68,11 +68,28 @@ export default function App() {
     ];
   });
 
-  // Persist files to localStorage whenever they change
+  // Persist files to localStorage
   useEffect(() => {
-    // We filter out the 'url' property when saving to avoid cluttering localStorage with potentially invalid blob refs
-    const filesToSave = files.map(({ url, ...rest }) => rest);
-    localStorage.setItem('focusFlowFiles', JSON.stringify(filesToSave));
+    try {
+      const filesToSave = files.map((file) => {
+        // INTELLIGENT PERSISTENCE:
+        // LocalStorage has a limit of ~5MB. 
+        // If the file content (Base64 URL) is small (< 500KB), we save it so it persists on reload.
+        // If it's large, we strip the URL. The user will see "Restore File" button on reload.
+        const isSmall = file.url && file.url.length < 500 * 1024;
+        
+        if (isSmall) {
+          return file;
+        } else {
+          // Return file metadata without the heavy content
+          const { url, ...rest } = file;
+          return rest;
+        }
+      });
+      localStorage.setItem('focusFlowFiles', JSON.stringify(filesToSave));
+    } catch (e) {
+      console.warn("LocalStorage quota exceeded, could not save all files.");
+    }
   }, [files]);
 
   const handleSearch = async (e: React.FormEvent) => {
@@ -97,17 +114,38 @@ export default function App() {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      const objectUrl = URL.createObjectURL(file);
       
-      const newFile: StudyFile = {
-        id: Math.random().toString(36).substr(2, 9),
-        name: file.name,
-        type: file.name.split('.').pop() || 'file',
-        lastOpened: new Date(),
-        size: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
-        url: objectUrl
+      // Use FileReader to convert to Base64 (DataURL)
+      // This is better than ObjectURL for PDF.js compatibility in some environments
+      // and allows us to attempt saving to localStorage.
+      const reader = new FileReader();
+      
+      reader.onload = (event) => {
+        const base64Url = event.target?.result as string;
+        
+        const newFile: StudyFile = {
+          id: Math.random().toString(36).substr(2, 9),
+          name: file.name,
+          type: file.name.split('.').pop() || 'file',
+          lastOpened: new Date(),
+          size: file.size > 1024 * 1024 
+            ? `${(file.size / 1024 / 1024).toFixed(2)} MB` 
+            : `${(file.size / 1024).toFixed(0)} KB`,
+          url: base64Url
+        };
+        setFiles(prev => [newFile, ...prev]);
       };
-      setFiles(prev => [newFile, ...prev]);
+      
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Called when a user restores a missing file content in the viewer
+  const handleUpdateFile = (id: string, newUrl: string) => {
+    setFiles(prev => prev.map(f => f.id === id ? { ...f, url: newUrl } : f));
+    // Also update the currently viewed file so the UI refreshes
+    if (currentFile && currentFile.id === id) {
+      setCurrentFile(prev => prev ? { ...prev, url: newUrl } : null);
     }
   };
 
@@ -141,7 +179,8 @@ export default function App() {
       return (
         <FileViewer 
           file={currentFile} 
-          onBack={() => setCurrentFile(null)} 
+          onBack={() => setCurrentFile(null)}
+          onUpdateFile={handleUpdateFile}
         />
       );
     }
@@ -153,7 +192,7 @@ export default function App() {
           <label className="flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg cursor-pointer transition-colors shadow-sm active:scale-95">
             <Plus size={18} />
             Add File
-            <input type="file" className="hidden" onChange={handleFileUpload} />
+            <input type="file" className="hidden" onChange={handleFileUpload} accept=".pdf,.txt,.md,.png,.jpg" />
           </label>
         </div>
 
@@ -208,7 +247,10 @@ export default function App() {
                    <h3 className="font-semibold text-zinc-800 dark:text-zinc-100 truncate mb-1" title={file.name}>{file.name}</h3>
                    <div className="flex justify-between items-center text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">
                       <span>{file.type} • {file.size}</span>
-                      <span className="opacity-70 normal-case">{file.lastOpened.toLocaleDateString()}</span>
+                      <span className="opacity-70 normal-case">
+                        {/* If URL is missing, it needs restore */}
+                        {!file.url && <span className="text-amber-500 font-bold ml-1 flex items-center gap-1">Needs Restore</span>}
+                      </span>
                    </div>
                 </div>
               </div>

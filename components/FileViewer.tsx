@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { StudyFile } from '../types';
 import { 
@@ -10,19 +11,21 @@ import {
   ZoomIn,
   ZoomOut,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Configure the worker for PDF.js
+// Configure the worker for PDF.js - Using version that matches importmap
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.worker.min.mjs`;
 
 interface FileViewerProps {
   file: StudyFile;
   onBack: () => void;
+  onUpdateFile: (id: string, newUrl: string) => void;
 }
 
-export const FileViewer: React.FC<FileViewerProps> = ({ file, onBack }) => {
+export const FileViewer: React.FC<FileViewerProps> = ({ file, onBack, onUpdateFile }) => {
   const [notes, setNotes] = useState<string>('');
   
   // PDF State
@@ -38,6 +41,7 @@ export const FileViewer: React.FC<FileViewerProps> = ({ file, onBack }) => {
 
   // Load PDF Document
   useEffect(() => {
+    // Only attempt load if there is a URL
     if (file.type.toLowerCase() === 'pdf' && file.url) {
       const loadPdf = async () => {
         try {
@@ -52,7 +56,7 @@ export const FileViewer: React.FC<FileViewerProps> = ({ file, onBack }) => {
           setCurrentPage(1);
         } catch (err: any) {
           console.error("Error loading PDF:", err);
-          setError("Could not load PDF. It might be corrupted or password protected.");
+          setError("Could not load PDF. It might be corrupted or incompatible.");
         } finally {
           setLoading(false);
         }
@@ -78,7 +82,6 @@ export const FileViewer: React.FC<FileViewerProps> = ({ file, onBack }) => {
         if (!context) return;
 
         // Calculate viewport
-        // We might want to fit width if needed, but simple scaling is fine for now
         const viewport = page.getViewport({ scale });
 
         // Set dimensions
@@ -110,6 +113,19 @@ export const FileViewer: React.FC<FileViewerProps> = ({ file, onBack }) => {
     renderPage();
   }, [pdfDoc, currentPage, scale]);
 
+  const handleRestoreFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const newFile = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const result = event.target?.result as string;
+        onUpdateFile(file.id, result);
+        setError(null);
+      };
+      reader.readAsDataURL(newFile);
+    }
+  };
+
   const changePage = (delta: number) => {
     const newPage = currentPage + delta;
     if (newPage >= 1 && newPage <= numPages) {
@@ -137,7 +153,6 @@ export const FileViewer: React.FC<FileViewerProps> = ({ file, onBack }) => {
           <AlertCircle size={48} className="mb-4 text-red-400" />
           <p className="font-medium text-lg mb-2">Oops!</p>
           <p className="text-sm mb-4">{error}</p>
-          <a href={file.url} download={file.name} className="text-brand-600 hover:underline">Download file instead</a>
         </div>
       );
     }
@@ -201,12 +216,21 @@ export const FileViewer: React.FC<FileViewerProps> = ({ file, onBack }) => {
   };
 
   const renderContent = () => {
+    // Handling MISSING FILE CONTENT (e.g. after refresh for large files)
     if (!file.url) {
       return (
-        <div className="w-full h-full flex flex-col items-center justify-center text-zinc-400 bg-zinc-50 dark:bg-zinc-800/50">
-          <FileIcon size={64} className="mb-4 opacity-20" />
-          <h3 className="text-lg font-medium text-zinc-500">Preview not available</h3>
-          <p className="text-sm opacity-70">The file content isn't loaded in this session.</p>
+        <div className="w-full h-full flex flex-col items-center justify-center text-zinc-400 bg-zinc-50 dark:bg-zinc-800/50 p-6 text-center">
+          <div className="bg-amber-100 dark:bg-amber-900/30 p-4 rounded-full mb-4">
+             <RefreshCw size={32} className="text-amber-600 dark:text-amber-400" />
+          </div>
+          <h3 className="text-lg font-bold text-zinc-700 dark:text-zinc-200 mb-1">Restore File Content</h3>
+          <p className="text-sm opacity-70 max-w-xs mb-6">
+            The content of <strong>{file.name}</strong> was too large to save in browser storage. Please select it again from your computer.
+          </p>
+          <label className="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg cursor-pointer transition-colors shadow-sm font-medium">
+            Select File
+            <input type="file" className="hidden" onChange={handleRestoreFile} />
+          </label>
         </div>
       );
     }
