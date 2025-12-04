@@ -10,7 +10,9 @@ import {
   FileText,
   Loader2,
   MoreVertical,
-  Trash2
+  Trash2,
+  PanelLeftClose,
+  PanelLeftOpen
 } from 'lucide-react';
 import { Tab, Video, StudyFile } from './types';
 import { Pomodoro } from './components/Pomodoro';
@@ -344,54 +346,71 @@ export default function App() {
     </div>
   );
 
+  // Check if we are in an immersive view (reading a file or watching a video)
+  const isImmersive = (activeTab === Tab.FILES && !!currentFile) || (activeTab === Tab.WATCH && !!currentVideo);
+
   // --- Main Layout ---
 
   return (
     <div className="flex h-screen bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 font-sans overflow-hidden selection:bg-brand-500/30">
       
       {/* Sidebar */}
-      <aside className={`${isSidebarOpen ? 'w-64' : 'w-20'} bg-zinc-50 dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 flex flex-col transition-all duration-300 ease-in-out relative z-20`}>
-        <div className="p-6 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center shadow-lg shadow-brand-500/30">
-                <Layout className="text-white w-5 h-5" />
-            </div>
-            {isSidebarOpen && <span className="font-bold text-xl tracking-tight">FocusFlow</span>}
+      <aside className={`${isSidebarOpen ? 'w-64' : 'w-20'} bg-zinc-50 dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 flex flex-col transition-all duration-300 ease-in-out relative z-20 flex-shrink-0`}>
+        <div className={`h-16 flex items-center flex-shrink-0 ${isSidebarOpen ? 'justify-between px-6' : 'justify-center px-2'}`}>
+            {isSidebarOpen && (
+                <div className="flex items-center gap-3 animate-in fade-in duration-200 overflow-hidden">
+                    <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center shadow-lg shadow-brand-500/30 flex-shrink-0">
+                        <Layout className="text-white w-5 h-5" />
+                    </div>
+                    <span className="font-bold text-xl tracking-tight whitespace-nowrap">FocusFlow</span>
+                </div>
+            )}
+            <button 
+                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                className={`p-2 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-500 dark:text-zinc-400 transition-colors ${!isSidebarOpen && 'w-10 h-10 flex items-center justify-center'}`}
+                title="Toggle Sidebar"
+            >
+                {isSidebarOpen ? <PanelLeftClose size={20} /> : <PanelLeftOpen size={24} />}
+            </button>
         </div>
 
-        <nav className="flex-1 px-3 py-4 space-y-1">
+        <nav className="flex-1 px-3 py-4 space-y-2">
           <button 
-            onClick={() => setActiveTab(Tab.FILES)}
-            className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all ${activeTab === Tab.FILES ? 'bg-white dark:bg-zinc-800 shadow-sm text-brand-600 dark:text-brand-400 font-medium' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
+            onClick={() => { setActiveTab(Tab.FILES); setCurrentFile(null); }}
+            className={`w-full flex items-center ${isSidebarOpen ? 'justify-start px-3' : 'justify-center px-0'} py-3 rounded-xl transition-all whitespace-nowrap ${activeTab === Tab.FILES ? 'bg-white dark:bg-zinc-800 shadow-sm text-brand-600 dark:text-brand-400 font-medium' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
+            title={!isSidebarOpen ? "Files" : ""}
           >
-            <FolderOpen size={20} />
-            {isSidebarOpen && <span>Files</span>}
+            <FolderOpen size={20} className="flex-shrink-0" />
+            {isSidebarOpen && <span className="ml-3 animate-in fade-in slide-in-from-left-2 duration-200">Files</span>}
           </button>
           
           <button 
             onClick={() => setActiveTab(Tab.EXPLORE)}
-            className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all ${activeTab === Tab.EXPLORE || activeTab === Tab.WATCH ? 'bg-white dark:bg-zinc-800 shadow-sm text-brand-600 dark:text-brand-400 font-medium' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
+            className={`w-full flex items-center ${isSidebarOpen ? 'justify-start px-3' : 'justify-center px-0'} py-3 rounded-xl transition-all whitespace-nowrap ${activeTab === Tab.EXPLORE || activeTab === Tab.WATCH ? 'bg-white dark:bg-zinc-800 shadow-sm text-brand-600 dark:text-brand-400 font-medium' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
+            title={!isSidebarOpen ? "Explore" : ""}
           >
-            <BookOpen size={20} />
-            {isSidebarOpen && <span>Explore</span>}
+            <BookOpen size={20} className="flex-shrink-0" />
+            {isSidebarOpen && <span className="ml-3 animate-in fade-in slide-in-from-left-2 duration-200">Explore</span>}
           </button>
 
           <button 
             onClick={() => setActiveTab(Tab.PROGRESS)}
-            className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all ${activeTab === Tab.PROGRESS ? 'bg-white dark:bg-zinc-800 shadow-sm text-brand-600 dark:text-brand-400 font-medium' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
+            className={`w-full flex items-center ${isSidebarOpen ? 'justify-start px-3' : 'justify-center px-0'} py-3 rounded-xl transition-all whitespace-nowrap ${activeTab === Tab.PROGRESS ? 'bg-white dark:bg-zinc-800 shadow-sm text-brand-600 dark:text-brand-400 font-medium' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
+            title={!isSidebarOpen ? "Progress" : ""}
           >
-            <BarChart2 size={20} />
-            {isSidebarOpen && <span>Progress</span>}
+            <BarChart2 size={20} className="flex-shrink-0" />
+            {isSidebarOpen && <span className="ml-3 animate-in fade-in slide-in-from-left-2 duration-200">Progress</span>}
           </button>
         </nav>
 
         <div className="p-4 border-t border-zinc-200 dark:border-zinc-800">
            {isSidebarOpen ? (
-               <div className="p-4 bg-brand-50 dark:bg-zinc-800 rounded-xl">
+               <div className="p-4 bg-brand-50 dark:bg-zinc-800 rounded-xl animate-in fade-in duration-300">
                    <h4 className="font-medium text-sm mb-1">Pro Tip</h4>
                    <p className="text-xs text-zinc-500">Enable the Pomodoro timer to stay focused.</p>
                </div>
            ) : (
-               <div className="w-2 h-2 rounded-full bg-brand-500 mx-auto"></div>
+               null
            )}
         </div>
       </aside>
@@ -399,29 +418,34 @@ export default function App() {
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col min-w-0 relative bg-zinc-50/50 dark:bg-zinc-900">
         
-        {/* Top Header / Search */}
-        <header className="h-16 border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md sticky top-0 z-10 flex items-center px-6 justify-between">
-           <div className="flex-1 max-w-xl">
-               <form onSubmit={handleSearch} className="relative group">
-                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-brand-500 transition-colors" size={18} />
-                   <input 
-                     type="text" 
-                     value={searchQuery}
-                     onChange={(e) => setSearchQuery(e.target.value)}
-                     placeholder="Search for educational videos..." 
-                     className="w-full bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-100 rounded-full pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 transition-all border border-transparent focus:border-brand-500"
-                   />
-               </form>
-           </div>
-           
-           <div className="flex items-center gap-4 ml-4">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-brand-400 to-purple-500 shadow-lg shadow-purple-500/20"></div>
-           </div>
-        </header>
+        {/* Top Header / Search - Hide in immersive mode */}
+        {!isImmersive && (
+            <header className="h-16 border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md sticky top-0 z-10 flex items-center px-6 justify-between gap-4">
+            <div className="flex items-center gap-4 flex-1">
+                <div className="flex-1 max-w-xl">
+                    <form onSubmit={handleSearch} className="relative group">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-brand-500 transition-colors" size={18} />
+                        <input 
+                        type="text" 
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search for educational videos..." 
+                        className="w-full bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-100 rounded-full pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 transition-all border border-transparent focus:border-brand-500"
+                        />
+                    </form>
+                </div>
+            </div>
+            
+            <div className="flex items-center gap-4">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-brand-400 to-purple-500 shadow-lg shadow-purple-500/20"></div>
+            </div>
+            </header>
+        )}
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-6 md:p-8">
-          <div className="max-w-6xl mx-auto h-full">
+        {/* We remove padding and max-width if we are in immersive mode (Viewing File or Video) */}
+        <div className={`flex-1 overflow-y-auto ${isImmersive ? 'p-0' : 'p-6 md:p-8'}`}>
+          <div className={`${isImmersive ? 'w-full h-full' : 'max-w-6xl mx-auto h-full'}`}>
             {activeTab === Tab.FILES && renderFiles()}
             {activeTab === Tab.EXPLORE && renderExplore()}
             {activeTab === Tab.PROGRESS && renderProgress()}
