@@ -1,0 +1,5 @@
+{
+  "name": "FocusFlow",
+  "description": "A distraction-free study environment that filters educational content, manages files, tracks progress, and includes a Pomodoro timer.",
+  "requestFramePermissions": []
+}
