@@ -22,9 +22,54 @@ interface EducationalScore {
 }
 
 /**
+ * Quick keyword-based pre-filter to catch obvious non-educational content
+ */
+const isLikelyEntertainment = (video: Video): boolean => {
+  const title = video.title.toLowerCase();
+  const channel = video.channel.toLowerCase();
+  const description = video.description.toLowerCase();
+
+  // Entertainment keywords that should be blocked
+  const entertainmentKeywords = [
+    // Music
+    'music video', 'mv', 'official audio', 'song', 'album', 'single', 'lyrics', 'music',
+    'rap', 'hip hop', 'pop song', 'dance music', 'remix', 'cover song',
+    
+    // Entertainment
+    'movie', 'trailer', 'film', 'cinema', 'hollywood', 'actor', 'actress',
+    'comedy', 'funny', 'prank', 'challenge', 'reaction', 'vlog', 'lifestyle',
+    'celebrity', 'gossip', 'drama', 'entertainment', 'show', 'tv show',
+    
+    // Gaming (non-educational)
+    'gameplay', 'let\'s play', 'walkthrough', 'gaming', 'playthrough',
+    'speedrun', 'gamer', 'twitch', 'stream',
+    
+    // Other distractions
+    'unboxing', 'haul', 'shopping', 'fashion', 'beauty', 'makeup',
+    'cooking show', 'recipe', 'food', 'travel vlog', 'vacation'
+  ];
+
+  // Check if title, channel, or description contains entertainment keywords
+  const text = `${title} ${channel} ${description}`;
+  return entertainmentKeywords.some(keyword => text.includes(keyword));
+};
+
+/**
  * Filter a single video to determine if it's educational
  */
 export const filterVideo = async (video: Video): Promise<EducationalScore> => {
+  // Quick pre-filter: block obvious entertainment content
+  if (isLikelyEntertainment(video)) {
+    console.log(`🚫 Pre-filtered: "${video.title}" - detected entertainment keywords`);
+    return {
+      score: 0,
+      isEducational: false,
+      reasoning: "Detected entertainment keywords (music, movie, vlog, etc.)",
+      categories: [],
+      confidence: 0.9
+    };
+  }
+
   try {
     const ai = getAiClient();
 
@@ -37,7 +82,7 @@ export const filterVideo = async (video: Video): Promise<EducationalScore> => {
         },
         isEducational: {
           type: Type.BOOLEAN,
-          description: "True if the video is primarily educational (score >= 60). False for entertainment, vlogs, pranks, pure gaming gameplay, music videos, etc."
+          description: "True ONLY if the video is PRIMARILY educational (score >= 75). MUST be false for ANY entertainment content including: music videos, songs, movies, trailers, vlogs, pranks, challenges, reaction videos, gaming gameplay, celebrity content, lifestyle content, comedy sketches, or any non-educational material."
         },
         reasoning: {
           type: Type.STRING,
@@ -56,31 +101,32 @@ export const filterVideo = async (video: Video): Promise<EducationalScore> => {
     };
 
     const prompt = `
-Analyze this video to determine if it's educational content suitable for a study app:
+CRITICAL: This is a DISTRACTION-FREE STUDY APP. You MUST be very strict and block ALL entertainment content.
+
+Analyze this video:
 
 Title: "${video.title}"
 Channel: "${video.channel}"
 Description: "${video.description.substring(0, 500)}"
-Views: ${video.viewCount || 'unknown'}
-Published: ${video.publishedAt || 'unknown'}
 
-Educational content includes:
-- Tutorials, courses, lectures, how-to guides
-- Documentaries, educational series
+STRICT RULES - BLOCK (set isEducational = false) if the video contains ANY of:
+- Music: songs, music videos, official audio, lyrics, albums, singles, remixes, covers
+- Movies/TV: trailers, films, cinema, actors, shows, entertainment
+- Entertainment: comedy, pranks, challenges, reactions, vlogs, lifestyle content
+- Gaming: gameplay, let's play, walkthroughs, speedruns (UNLESS it's game development/education)
+- Other: celebrity gossip, drama, unboxing, hauls, shopping, fashion, beauty, cooking shows, travel vlogs
+
+ONLY ALLOW (set isEducational = true) if the video is:
+- Educational tutorials, courses, lectures, how-to guides
+- Documentaries and educational series
 - Academic content, research explanations
-- Skill-building, professional development
+- Skill-building and professional development
 - Science, history, technology explanations
 - Programming, mathematics, language learning
+- Educational content that teaches something valuable
 
-NOT educational (should be filtered out):
-- Entertainment: music videos, movie trailers, comedy sketches
-- Vlogs, personal diaries, lifestyle content
-- Gaming gameplay (unless it's game development/education)
-- Pranks, challenges, reaction videos
-- Celebrity gossip, drama, clickbait
-- Pure entertainment without educational value
-
-Rate this video's educational value and provide reasoning.
+Be VERY strict. If there's ANY doubt, block it. Score must be >= 75 to be educational.
+Rate this video's educational value (0-100) and provide reasoning.
     `;
 
     const response = await ai.models.generateContent({
@@ -93,10 +139,14 @@ Rate this video's educational value and provide reasoning.
     });
 
     const result = JSON.parse(response.text || "{}");
+    const score = result.score || 0;
+    
+    // Strict threshold: must be >= 75 to be considered educational
+    const isEducational = score >= 75 && (result.isEducational === true);
     
     return {
-      score: result.score || 0,
-      isEducational: result.isEducational || false,
+      score: score,
+      isEducational: isEducational,
       reasoning: result.reasoning || "Unable to determine",
       categories: result.categories || [],
       confidence: result.confidence || 0.5
@@ -159,13 +209,24 @@ ${i + 1}. ID: ${v.id}
    Description: "${v.description}"
 `).join('\n')}
 
+CRITICAL: This is a DISTRACTION-FREE STUDY APP. Be VERY strict. Block ALL entertainment.
+
 For each video, determine:
-- Educational score (0-100)
-- Is it educational? (true if score >= 60)
+- Educational score (0-100) - must be >= 75 to be educational
+- Is it educational? (true ONLY if score >= 75 AND it's clearly educational content)
 - Brief reasoning
 - Categories (tutorial, lecture, documentary, course, how-to, explanation, etc.)
 
-Filter out: entertainment, vlogs, gaming gameplay, pranks, music videos, clickbait.
+STRICTLY FILTER OUT:
+- Music: songs, music videos, official audio, lyrics, albums, remixes
+- Movies/TV: trailers, films, cinema, shows, entertainment
+- Entertainment: comedy, pranks, challenges, reactions, vlogs, lifestyle
+- Gaming: gameplay, let's play, walkthroughs (unless game development/education)
+- Other: celebrity gossip, drama, unboxing, shopping, fashion, beauty, cooking shows
+
+ONLY ALLOW: Educational tutorials, courses, lectures, documentaries, academic content, skill-building, science/history/tech explanations, programming, math, language learning.
+
+If there's ANY doubt, block it. Score must be >= 75.
     `;
 
     const response = await ai.models.generateContent({
@@ -187,20 +248,26 @@ Filter out: entertainment, vlogs, gaming gameplay, pranks, music videos, clickba
 
     return videos
       .map(video => {
-        const analysis = resultMap.get(video.id);
-        if (analysis) {
-          return {
-            ...video,
-            isEducational: analysis.isEducational || false
-          };
+        // Pre-filter entertainment keywords
+        if (isLikelyEntertainment(video)) {
+          return null;
         }
-        // If not in results, default to false
-        return {
-          ...video,
-          isEducational: false
-        };
+        
+        const analysis = resultMap.get(video.id) as any;
+        if (analysis) {
+          // Strict threshold: score must be >= 75
+          const score = analysis.score || 0;
+          const isEducational = score >= 75 && (analysis.isEducational === true);
+          
+          return isEducational ? {
+            ...video,
+            isEducational: true
+          } : null;
+        }
+        // If not in results, default to false (block it)
+        return null;
       })
-      .filter(video => video.isEducational);
+      .filter((video): video is Video => video !== null);
 
   } catch (error) {
     console.error("Batch filtering error:", error);

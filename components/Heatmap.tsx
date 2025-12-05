@@ -1,12 +1,19 @@
 import React from 'react';
+import { getDailyProgress } from '../services/progressService';
 
 export const Heatmap: React.FC = () => {
-  // Generate mock data for the last ~100 days
-  const generateData = () => {
-    return Array.from({ length: 98 }).map(() => Math.floor(Math.random() * 5));
-  };
-
-  const data = generateData();
+  // Get real data for the last ~100 days
+  const dailyProgress = getDailyProgress(98);
+  
+  // Convert to activity levels (0-4)
+  const data = dailyProgress.map(day => {
+    const minutes = day.totalMinutes;
+    if (minutes === 0) return 0;
+    if (minutes < 30) return 1;
+    if (minutes < 60) return 2;
+    if (minutes < 120) return 3;
+    return 4;
+  });
 
   const getColor = (level: number) => {
     switch (level) {

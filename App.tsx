@@ -20,7 +20,21 @@ import { Pomodoro } from './components/Pomodoro';
 import { Heatmap } from './components/Heatmap';
 import { VideoPlayer } from './components/VideoPlayer';
 import { FileViewer } from './components/FileViewer';
+import { ProgressChart } from './components/ProgressChart';
+import { Achievements } from './components/Achievements';
+import { StudyGoals } from './components/StudyGoals';
+import { SubjectBreakdown } from './components/SubjectBreakdown';
 import { searchEducationalVideos, getTrendingVideos } from './services/geminiService';
+import { 
+  getTotalStudyTime, 
+  getStreak, 
+  getDailyProgress, 
+  getWeeklyStats, 
+  getMonthlyStats,
+  getSubjectBreakdown,
+  getAchievements,
+  getSessions
+} from './services/progressService';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>(Tab.FILES);
@@ -338,6 +352,7 @@ export default function App() {
                 onClick={() => {
                    setCurrentVideo(video);
                    setActiveTab(Tab.WATCH);
+                   setIsSidebarOpen(false); // Close sidebar when opening video
                 }}
                 className={`group flex flex-col bg-white dark:bg-zinc-800 rounded-xl overflow-hidden border ${video.isEducational ? 'border-zinc-200 dark:border-zinc-700 cursor-pointer hover:border-brand-500' : 'border-red-200 dark:border-red-900/50 opacity-75'} shadow-sm hover:shadow-md transition-all h-full`}
               >
@@ -373,33 +388,126 @@ export default function App() {
     </div>
   );
 
-  const renderProgress = () => (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <h2 className="text-3xl font-bold text-zinc-800 dark:text-white mb-8">Your Progress</h2>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        <div className="bg-gradient-to-br from-brand-500 to-brand-600 text-white p-6 rounded-2xl shadow-lg">
-           <h3 className="text-brand-100 text-sm font-medium mb-1">Total Study Time</h3>
-           <div className="text-4xl font-bold mb-2">124.5 <span className="text-lg opacity-80">hrs</span></div>
-           <div className="text-xs bg-white/20 w-fit px-2 py-1 rounded">+2.4 hrs today</div>
-        </div>
-        <div className="bg-white dark:bg-zinc-800 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-sm">
-           <h3 className="text-zinc-500 text-sm font-medium mb-1">Current Streak</h3>
-           <div className="text-4xl font-bold text-zinc-800 dark:text-white mb-2">12 <span className="text-lg text-zinc-400 font-normal">days</span></div>
-           <div className="text-xs text-green-500 font-medium">Personal best!</div>
-        </div>
-        <div className="bg-white dark:bg-zinc-800 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-sm">
-           <h3 className="text-zinc-500 text-sm font-medium mb-1">Files Reviewed</h3>
-           <div className="text-4xl font-bold text-zinc-800 dark:text-white mb-2">48</div>
-           <div className="text-xs text-zinc-400">Across 8 subjects</div>
-        </div>
-      </div>
+  const renderProgress = () => {
+    // Get all progress data
+    const totalMinutes = getTotalStudyTime();
+    const totalHours = (totalMinutes / 60).toFixed(1);
+    const streak = getStreak();
+    const weeklyStats = getWeeklyStats();
+    const monthlyStats = getMonthlyStats();
+    const dailyProgress = getDailyProgress(30);
+    const weeklyProgress = getDailyProgress(7);
+    const subjects = getSubjectBreakdown();
+    const achievements = getAchievements();
+    const sessions = getSessions();
+    const todayProgress = getDailyProgress(1)[0] || { totalMinutes: 0, sessions: 0, subjects: [] };
 
-      <div className="bg-white dark:bg-zinc-800 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-sm">
-        <Heatmap />
+    return (
+      <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold text-zinc-800 dark:text-white mb-2">Your Progress</h2>
+            <p className="text-zinc-500 dark:text-zinc-400">Track your learning journey and achievements</p>
+          </div>
+        </div>
+
+        {/* Key Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-gradient-to-br from-brand-500 to-brand-600 text-white p-6 rounded-2xl shadow-lg">
+            <h3 className="text-brand-100 text-sm font-medium mb-1">Total Study Time</h3>
+            <div className="text-4xl font-bold mb-2">{totalHours} <span className="text-lg opacity-80">hrs</span></div>
+            <div className="text-xs bg-white/20 w-fit px-2 py-1 rounded">
+              {todayProgress.totalMinutes > 0 ? `+${(todayProgress.totalMinutes / 60).toFixed(1)} hrs today` : 'Start studying today!'}
+            </div>
+          </div>
+          
+          <div className="bg-white dark:bg-zinc-800 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-sm">
+            <h3 className="text-zinc-500 text-sm font-medium mb-1">Current Streak</h3>
+            <div className="text-4xl font-bold text-zinc-800 dark:text-white mb-2">
+              {streak} <span className="text-lg text-zinc-400 font-normal">days</span>
+            </div>
+            <div className={`text-xs font-medium ${streak > 0 ? 'text-green-500' : 'text-zinc-400'}`}>
+              {streak > 0 ? '🔥 Keep it up!' : 'Start your streak today'}
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-zinc-800 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-sm">
+            <h3 className="text-zinc-500 text-sm font-medium mb-1">This Week</h3>
+            <div className="text-4xl font-bold text-zinc-800 dark:text-white mb-2">
+              {weeklyStats.totalHours} <span className="text-lg text-zinc-400 font-normal">hrs</span>
+            </div>
+            <div className="text-xs text-zinc-400">{weeklyStats.activeDays} active days</div>
+          </div>
+
+          <div className="bg-white dark:bg-zinc-800 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-sm">
+            <h3 className="text-zinc-500 text-sm font-medium mb-1">Total Sessions</h3>
+            <div className="text-4xl font-bold text-zinc-800 dark:text-white mb-2">{sessions.length}</div>
+            <div className="text-xs text-zinc-400">{subjects.length} subjects covered</div>
+          </div>
+        </div>
+
+        {/* Goals Section */}
+        <div className="bg-white dark:bg-zinc-800 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-sm">
+          <StudyGoals />
+        </div>
+
+        {/* Charts and Heatmap Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Weekly Chart */}
+          <div className="bg-white dark:bg-zinc-800 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-sm">
+            <ProgressChart data={weeklyProgress} days={7} title="This Week" />
+          </div>
+
+          {/* Monthly Chart */}
+          <div className="bg-white dark:bg-zinc-800 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-sm">
+            <ProgressChart data={dailyProgress} days={30} title="Last 30 Days" />
+          </div>
+        </div>
+
+        {/* Heatmap */}
+        <div className="bg-white dark:bg-zinc-800 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-sm">
+          <Heatmap />
+        </div>
+
+        {/* Achievements and Subject Breakdown Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Achievements */}
+          <div className="bg-white dark:bg-zinc-800 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-sm">
+            <Achievements achievements={achievements} />
+          </div>
+
+          {/* Subject Breakdown */}
+          <div className="bg-white dark:bg-zinc-800 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-sm">
+            <SubjectBreakdown subjects={subjects} />
+          </div>
+        </div>
+
+        {/* Monthly Stats Summary */}
+        <div className="bg-gradient-to-br from-zinc-50 to-zinc-100 dark:from-zinc-800 dark:to-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-700">
+          <h3 className="text-lg font-semibold text-zinc-800 dark:text-white mb-4">Monthly Summary</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-zinc-800 dark:text-white">{monthlyStats.totalHours}h</div>
+              <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Total Time</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-zinc-800 dark:text-white">{monthlyStats.totalSessions}</div>
+              <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Sessions</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-zinc-800 dark:text-white">{monthlyStats.activeDays}</div>
+              <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Active Days</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-zinc-800 dark:text-white">{monthlyStats.averagePerDay}m</div>
+              <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Daily Average</div>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // Check if we are in an immersive view (reading a file or watching a video)
   const isImmersive = (activeTab === Tab.FILES && !!currentFile) || (activeTab === Tab.WATCH && !!currentVideo);
